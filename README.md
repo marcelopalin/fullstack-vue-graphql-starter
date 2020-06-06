@@ -1,8 +1,8 @@
-# INICIO
+# 1. INICIO
+
+PROJETO PÚBLICO: GITHUB https://github.com/marcelopalin/fullstack-vue-graphql-starter
 
 Requisitos: NodeJS instalado na máquina
-
-Baixou o projeto em https://github.com/marcelopalin/fullstack-vue-graphql-starter
 
 Instale as dependências:
 
@@ -38,7 +38,20 @@ Dependências atuais:
 npm i
 ```
 
-# CRIANDO O SERVER.JS
+# Alterando o comando START
+
+Ao invés de utilizarmos o **server** vamos criar no 
+package.json o comando start:
+
+```
+"start": "nodemon server.js --ext js,graphql,gql",
+```
+
+Veja que definimos que qualquer alteração nos arquivos do tipo js, graphql ou gql
+deve reiniciar o servidor.
+
+
+# 2. CRIANDO O SERVER.JS
 
 Inicializando o servidor:
 
@@ -64,7 +77,7 @@ C:\wamp64\www\fullstack-vue-graphql-starter\node_modules\apollo-server-core\dist
                 throw Error('Apollo Server requires either an existing schema, modules or typeDefs');
 ```
 
-# Versão Inicial Completa
+# 3. Versão Inicial Completa
 
 Precisamos definir os dados (TypeDefs) e os resolvers para passarmos
 para o ApolloServer, a versão inicial fica:
@@ -119,7 +132,7 @@ server.listen().then(({ url }) => {
 
 ```
 
-# PLAYGROUND
+# 4. PLAYGROUND
 
 Acessando o http://localhost:4000/
 
@@ -156,7 +169,286 @@ se executar a Query novamente verá a nova tarefa:
 }
 ```
 
-# DESTRUCTURING ARGS
+# 5. DESTRUCTURING ARGS
 
 Ao invés de usarmos a variável **args** na mutation podemos utilizar
-o destructuring 
+o destructuring.
+
+# 6. CONFIGURAÇÕES DO BD LOCAL
+
+Vamos instalar os Plug-ins no VSCode para nos auxiliar.
+
+Plug-ins:
+- DotEnv
+- Eslint
+- GraphQL for VSCode
+- SQL Tools
+
+# 7. BD MONGO
+
+USER: admin_apis
+PASS: SENHA_USER_BD
+BD: fullstack_db
+
+CRIANDO o BD e USUARIO ADMIN DO BD
+
+1) Autentique-se com o Admin do MONGO
+
+```
+mongo -u useradmin -p SENHA_ADMIN --authenticationDatabase admin
+```
+
+2) Execute o comando:
+
+```json
+> use fullstack_db
+switched to db fullstack_db
+db.createUser({
+   user: "admin_apis",
+   pwd:  "Ampere159", //passwordPrompt(), 
+   roles: [ { role: "readWrite", db: "fullstack_db" }]
+})
+
+Successfully added user: {
+	"user" : "admin_apis",
+	"roles" : [
+		{
+			"role" : "readWrite",
+			"db" : "fullstack_db"
+		}
+	]
+}
+```
+
+Não esqueça de acertar seu arquivo **.env** com a seguinte string de conexão:
+
+```ini
+# MONGODB 
+MONGO_URI=mongodb://admin_apis:SENHA_USER_BD@127.0.0.1:27017/fullstack_db
+```
+
+
+# 8. AJUSTANDO O CODIGO PARA CONEXÃO COM O BD MONGODB LOCAL
+
+```
+npm i -S mongoose, dotenv
+```
+
+```js
+const mongoose = require("mongoose");
+require("dotenv").config(); // .env
+// require("dotenv").config({ path: 'config/config.env'});
+
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useCreateIndex: true,
+    useFindAndModify: false,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error(err));
+```
+
+# REFATORANDO O CÓDIGO - VERSÃO I
+
+Vamos fazer a leitura sem o auxílio do graphql-import.
+
+server.js:
+
+```js
+const { ApolloServer, gql } = require("apollo-server");
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useCreateIndex: true,
+    useFindAndModify: false,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error(err));
+
+const fs = require("fs");
+const path = require("path");
+const filePath = path.join(__dirname,"schema_graphql", "typeDefs.gql");
+const typeDefs = fs.readFileSync(filePath, "utf-8");
+
+const resolvers = require("./resolvers");
+
+const User = require("./schema_mongoose/User");
+const Post = require("./schema_mongoose/Post");
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+});
+
+server.listen().then(({ url }) => {
+  console.log(`Server listening on ${url}`);
+});
+```
+
+Nele já importamos os dois Schemas, do MongoDB e do GraphQL.
+
+Se colocarmos lado a lado os arquivos:
+
+schema_graphql\typeDefs.gql
+
+com schema_mongoose\User.js e schema_mongoose\Post.js
+
+
+E os resolvers são:
+
+```js
+module.exports = {
+  Query: {
+    getPosts: async (_, args, { Post }) => {
+      const posts = await Post.find({}).sort({ createdDate: "desc" }).populate({
+        path: "createdBy",
+        model: "User",
+      });
+      return posts;
+    },
+  },
+  Mutation: {
+    addPost: async (
+      _,
+      { title, imageUrl, categories, description, creatorId },
+      { Post }
+    ) => {
+      const newPost = await new Post({
+        title,
+        imageUrl,
+        categories,
+        description,
+        createdBy: creatorId,
+      }).save();
+      return newPost;
+    },
+    /** Registra o usuário */
+    signupUser: async (_, { username, email, password }, { User }) => {
+      const user = await User.findOne({ username });
+      if (user) {
+        throw new Error("User already exists");
+      }
+      const newUser = await new User({
+        username,
+        email,
+        password,
+      }).save();
+      return newUser;
+    },
+  },
+};
+```
+
+E no Schema do GraphQL em schema_graphql\typeDefs.gql
+
+@unique dá problemas, talvez na versão anterior funcionasse
+
+```graphql
+scalar Date
+
+type User {
+  _id: ID
+  username: String! 
+  email: String!
+  password: String!
+  avatar: String
+  joinDate: String
+  favorites: [Post]
+}
+
+type Post {
+  title: String!
+  imageUrl: String!
+  categories: [String]!
+  description: String!
+  createdDate: Date
+  likes: Int
+  createdBy: User!
+  messages: [Message]
+}
+
+type Message {
+  _id: ID
+  messageBody: String!
+  messageDate: Date
+  messageUser: User!
+}
+
+type Query {
+  getPosts: [Post]
+}
+
+type Mutation {
+  addPost(
+    title: String!
+    imageUrl: String!
+    categories: [String]!
+    description: String!
+    creatorId: ID!
+  ): Post!
+  signupUser(username: String!, email: String!, password: String!): User!
+}
+```
+
+
+# INICIANDO OS TESTES NO PLAYGROUND
+
+Inicie o servidor:
+
+```
+npm run server
+```
+
+Acesse a URL http://localhost:4000
+
+Execute a primeira Mutation de Registrar um Usuário:
+
+```graphql
+mutation {
+  signupUser(username:"palin", email: "palin@mail.com", password: "senha123") {
+    _id
+    username
+    email
+    password
+    avatar
+  }
+}
+```
+
+```graphql
+mutation {
+  addPost(title: "Introdução ao MongoDB", 
+    imageUrl: "http://image", 
+    categories: ["Artes","Gráfico"], 
+    description: "Obra Importante", 
+    creatorId: "5edbcdd25120523b506a238c" ) {
+    title
+    imageUrl
+    description
+  }
+}
+```
+
+```graphql
+query {
+  getPosts{
+    title
+    imageUrl
+    categories
+    description
+    createdDate
+    createdBy {
+      username
+      email
+    }
+  }
+}
+```
+
+

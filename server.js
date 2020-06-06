@@ -1,43 +1,34 @@
 const { ApolloServer, gql } = require("apollo-server");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
-const todos = [
-  { task: "Lavar carro", completed: false },
-  { task: "Arrumar o quarto", completed: true },
-];
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useCreateIndex: true,
+    useFindAndModify: false,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error(err));
 
-const typeDefs = gql`
-  type Todo {
-    task: String
-    completed: Boolean
-  }
+const fs = require("fs");
+const path = require("path");
+const filePath = path.join(__dirname, "schema_graphql", "typeDefs.gql");
+const typeDefs = fs.readFileSync(filePath, "utf-8");
 
-  type Query {
-    getTodos: [Todo]
-  }
+const resolvers = require("./resolvers");
 
-  type Mutation {
-    addTodo(task: String, completed: Boolean): Todo
-  }
-`;
-
-const resolvers = {
-  Query: {
-    getTodos: () => {
-      return todos;
-    },
-  },
-  Mutation: {
-    addTodo: (_, args) => {
-      const todo = { task: args.task, completed: args.completed };
-      todos.push(todo);
-      return todo;
-    },
-  },
-};
+const User = require("./schema_mongoose/User");
+const Post = require("./schema_mongoose/Post");
 
 const server = new ApolloServer({
   typeDefs,
   resolvers,
+  context: {
+    User,
+    Post
+  }
 });
 
 server.listen().then(({ url }) => {

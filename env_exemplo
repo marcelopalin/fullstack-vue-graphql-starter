@@ -1,0 +1,13 @@
+NODE_ENV=development
+
+# TRANSLATE MSG - pt ou en
+APP_LOCALE=pt
+# en ou pt-BR
+APP_MOMENT_LOCALE=pt-BR
+
+# JWT
+APP_AUTH_SECRET=PALAVRA_SECRETA
+
+# MONGODB 
+MONGO_URI=mongodb://admin_apis:SENHABD@127.0.0.1:27017/fullstack_db
+
