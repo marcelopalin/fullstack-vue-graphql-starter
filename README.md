@@ -205,7 +205,7 @@ mongo -u useradmin -p SENHA_ADMIN --authenticationDatabase admin
 switched to db fullstack_db
 db.createUser({
    user: "admin_apis",
-   pwd:  "Ampere159", //passwordPrompt(), 
+   pwd:  "senha123", //passwordPrompt(), 
    roles: [ { role: "readWrite", db: "fullstack_db" }]
 })
 
